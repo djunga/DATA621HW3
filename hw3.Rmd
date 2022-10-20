@@ -1,0 +1,67 @@
+---
+title: "hw3"
+author: "Tora Mullings"
+date: '2022-10-19'
+output: html_document
+---
+Due 11/06
+Data Exploration
+
+
+```{r, echo = F, warning = F, message = F}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(corrplot)
+library(reshape2)
+library(knitr)
+library(broom)
+```
+
+```{r}
+crime.train = read_csv('https://raw.githubusercontent.com/djunga/DATA621HW3/main/crime_train.csv?token=GHSAT0AAAAAABYSAVFW2TDHPPGN5EWD2NWCY2QSSVQ')
+
+# mat.correlation = cor(crime.train, use = 'complete')
+# mat.correlation[upper.tri(mat.correlation)] = NA
+# mlt.correlation <- melt(mat.correlation)
+# ggplot(data = mlt.correlation, aes(Var2, Var1, fill = value))+
+#  geom_tile(color = "white")+
+#  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+#    midpoint = 0, limit = c(-1,1), space = "Lab",
+#    name="Pearson\nCorrelation") +
+#   theme_minimal()+
+#  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+#     size = 8, hjust = 1), axis.text.y = element_text(size = 8))+
+#  coord_fixed()
+
+
+```
+
+
+```{r}
+corrplot(corr = cor(crime.train), tl.col="black", tl.cex=0.6, order='AOE')
+```
+
+
+
+```{r, echo = F, warning = F, message = F}
+# mlt.training.plt = melt(select(crime.train, -c("target")))
+# mlt.training.plt = merge(mlt.training.plt, select(crime.train, c("target")))
+# ggplot(data = mlt.training.plt, aes(value, target)) + geom_point() + facet_wrap(~variable, scales = "free")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
