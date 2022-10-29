@@ -1,0 +1,195 @@
+---
+title: "HW3"
+author: Deepika Dilip, Tora Mullings, Daniel Sullivan, Deepa Sharma, Bikram Barua,
+  Newman Okereafor
+date: '2022-10-19'
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Data Exploration
+
+
+```{r, echo = F, warning = F, message = F}
+
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(corrplot)
+library(reshape2)
+library(knitr)
+library(broom)
+library(caret)
+library(leaps)
+library(MASS)
+library(magrittr)
+
+```
+
+## Correlation Plot
+```{r, echo = F, warning = F, message = F}
+crime.train = read.csv('https://raw.githubusercontent.com/djunga/DATA621HW3/deepika/crime_train.csv')
+crime.train
+corrplot(cor(crime.train), tl.col="black", tl.cex=0.6, order='AOE')
+
+```
+
+*Interpretation*: `tax` and `rad` are highliy correlated variables. Meanwhile `dis` is inversely correlated with `indus`, `nox`, and `age`.
+
+## Distribution Visualization
+```{r, echo = F, warning = F, message = F}
+mlt.train = crime.train
+mlt.train$ID = rownames(mlt.train)
+mlt.train = melt(mlt.train, id.vars = "ID")
+ggplot(aes(value), data = mlt.train) + geom_histogram() + facet_wrap(~variable, scales = "free") + labs(title = "Distributions of Predictors", x = "Predictors")
+```
+
+*Interpretation*: `target` is a binary variable (outcome). Age is skewed to the left. `rm` is normally distributed. `tax` and `rad` have a couple of outliers but its lower quadrant maintains a normal distribution. 
+
+
+
+## Building models
+
+### Model 1: all predictors
+```{r}
+lmod <- glm(target ~ ., family = binomial, crime.train)
+summary(lmod)
+```
+
+### Model 2: Backward Elimination
+
+```{r}
+train.control <- trainControl(method="cv", number=10)   # k-fold cross-validation
+step.model <- train(target ~., data=crime.train, method="leapBackward", tuneGrid=data.frame(nvmax=1:12), trControl=train.control)
+step.model$results
+```
+
+The model with 4 predictors has the lowest RSME value. It also has the highest R-squared.
+
+```{r}
+summary(step.model$finalModel)
+```
+
+
+```{r}
+coef(step.model$finalModel, 4)
+```
+
+```{r}
+lmod1 <- glm(target ~ nox + age + rad + medv, family = binomial, crime.train)
+lmod1
+
+```
+
+### Analysing Model 2
+### Odds Ratio of Model 2
+#### The odds ratio is to measure the association between independent variables and dependent variables in R. The model co-eefficients are identified using the 'coef' function.
+#### The 'conf-int' argument inside the exponential function calculates the confidence interval for the odds ratio of the model. Then the estimates can be combined using 'cbind'.
+
+```{r}
+coef(lmod1)
+exp(coef(lmod1))
+exp(confint(lmod1))
+cbind(coef(lmod1), odds_ratio = exp(coef(lmod1)), exp(confint(lmod1)))
+```
+
+### Predicting Probability
+#### The probability can be predicted of the model using the fitted function. The result can be rounded using the round function. The predicted values can be added as a new column in the dataset.
+
+```{r}
+crime.train$predict_prob <- round(fitted(lmod1), 2)
+head(crime.train)
+```
+
+### Classification, Sensitivity and Specificity
+
+
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 214 correctly predicted 'non Target' and 192 correctly predicted 'Targets'.
+#### There are 23 wrongly predicted as 'Targets' and 37 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+sensitivity
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+specificity
+```
+
+#### The Sensitivity is 83.8% and Specificity is 90.2%, when the cuttoff is 0.5.
+
+
+
+#### Deepa
+## calculate McFadden’s R2 in Model 1 and 2
+we can compute a metric known as McFadden’s R2, which ranges from 0 to just under 1. In practice, values over 0.40 indicate that a model fits the data very well.
+
+We can compute McFadden’s R2 for our model using the pR2 function from the pscl package:
+
+#Model1
+```{r}
+pscl::pR2(lmod)["McFadden"]
+```
+A value of 0.7027554   is  high for McFadden’s R2, which indicates that our model fits the data very well and has high predictive power.
+
+
+# Model 2
+```{r}
+pscl::pR2(lmod1)["McFadden"]
+```
+A value of 0.6395641  is quite high for McFadden’s R2, which indicates that our model fits the data very well and has high predictive power.
+
+
+
+## VIF Values:
+##We can also calculate the VIF values of each variable in the model to see if multicollinearity is a problem:
+#calculate VIF values for each predictor variable in Modoel1 and Model 2
+
+
+```{r}
+#calculate VIF values for each predictor variable in model1
+car::vif(lmod)
+```
+
+As a rule of thumb, VIF values above 5 indicate severe multicollinearity. I see 'rm' 'rad' 'medv' and 'predict_prob' has VIP values above 5 and has issue with multicollinearity. we can assume that multicollinearity is an issue in our model.
+
+
+
+```{r}
+#calculate VIF values for each predictor variable in model2
+car::vif(lmod1)
+```
+As a rule of thumb, VIF values above 5 indicate severe multicollinearity. Since none of the  predictor variables in our models have a VIF over 5, we can assume that multicollinearity is not an issue in our model.
+
+
+
+
+## Model 3 - Forward Selection
+
+```{r}
+# Create an empty model with no variables
+lmod3 <- glm(target ~ 1, data = crime.train, family = 'binomial')
+logMod3 <- lmod3 %>% 
+  stepAIC(direction = "forward",
+          scope = ~ zn + indus + chas + nox + rm + age + dis 
+                    + rad + tax + ptratio + lstat + medv, 
+          trace = FALSE)
+summary(lmod3 )
+```
+
+
+
+
+
+
