@@ -29,6 +29,7 @@ library(caret)
 library(leaps)
 library(MASS)
 library(magrittr)
+library(betareg)
 
 ```
 
@@ -84,7 +85,6 @@ coef(step.model$finalModel, 4)
 ```{r}
 lmod1 <- glm(target ~ nox + age + rad + medv, family = binomial, crime.train)
 lmod1
-
 ```
 
 ### Analysing Model 2
@@ -187,6 +187,86 @@ logMod3 <- lmod3 %>%
           trace = FALSE)
 summary(lmod3 )
 ```
+## model 4 probit regression
+#### Dan
+
+After the automated elimination of variables for the model, we wanted to compair the probit and logit models. 
+
+```{r, echo=FALSE}
+train.control <- trainControl(method="cv", number=10)   # k-fold cross-validation
+fstep.model <- train(target ~., data=crime.train, method="leapForward", tuneGrid=data.frame(nvmax=1:12), trControl=train.control)
+fstep.model$results
+
+```
+```{r, echo=FALSE}
+coef(fstep.model$finalModel, 5)
+```
+
+
+```{r, echo=FALSE}
+probit_back <- glm(target ~ nox + age + rad + medv, family = binomial(link=probit), crime.train)
+probit_back
+```
+```{r, echo=FALSE}
+probit_forward<-glm(target ~ dis + rad + tax + ptratio, family =binomial(link=probit), crime.train)
+probit_forward
+```
+### analyzing probit models
+
+```{r, echo=FALSE}
+crime.train$predict_prob_prfor <- round(fitted(probit_forward), 2)
+crime.train$predict_prob_prback <- round(fitted(probit_back), 2)
+
+```
+#### classification tables
+
+Probit forward model
+```{r, echo=FALSE}
+classification_table_prfor <- table(crime.train$target, crime.train$predict_prob_prfor > 0.5)
+classification_table_prfor
+```
+probit backward model
+```{r, echo=FALSE}
+classification_table_prback<- table(crime.train$target, crime.train$predict_prob_prback > 0.5)
+classification_table_prback
+```
+#### sensitivity and specificity respectively
+
+forward
+```{r, echo=FALSE}
+sensitivity_prfor <- (classification_table_prfor[2,2]/(classification_table_prfor[2,2] + classification_table_prfor[2,1])) * 100
+sensitivity_prfor
+specificity_prfor <- (classification_table_prfor[1,1]/(classification_table_prfor[1,1] + classification_table_prfor[1,2])) * 100
+specificity_prfor
+
+```
+backward
+```{r, echo=FALSE}
+sensitivity_proback <- (classification_table_prback[2,2]/(classification_table_prback[2,2] + classification_table_prback[2,1])) * 100
+sensitivity_proback
+specificity_proback <- (classification_table_prback[1,1]/(classification_table_prback[1,1] + classification_table_prback[1,2])) * 100
+specificity_proback
+```
+
+#### mcfaden R^2 values and VIF respectivly
+
+forward
+```{r, echo=FALSE}
+pscl::pR2(probit_forward)["McFadden"]
+car::vif(probit_forward)
+
+```
+
+backward
+
+```{r, echo=FALSE}
+pscl::pR2(probit_back)["McFadden"]
+car::vif(probit_back)
+
+```
+
+
+
 
 
 
