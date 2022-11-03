@@ -187,10 +187,7 @@ logMod3 <- lmod3 %>%
           trace = FALSE)
 summary(lmod3 )
 ```
-## model 4 probit regression
-#### Dan
-
-After the automated elimination of variables for the model, we wanted to compair the probit and logit models. 
+ 
 
 ```{r, echo=FALSE}
 train.control <- trainControl(method="cv", number=10)   # k-fold cross-validation
@@ -201,7 +198,10 @@ fstep.model$results
 ```{r, echo=FALSE}
 coef(fstep.model$finalModel, 5)
 ```
+## model 4 probit regression
+#### Dan
 
+After the automated elimination of variables for the model, we wanted to compare the probit and logit models. below we constrict the logit models off of the automated forward and backward elimination variables.
 
 ```{r, echo=FALSE}
 probit_back <- glm(target ~ nox + age + rad + medv, family = binomial(link=probit), crime.train)
@@ -230,23 +230,54 @@ probit backward model
 classification_table_prback<- table(crime.train$target, crime.train$predict_prob_prback > 0.5)
 classification_table_prback
 ```
-#### sensitivity and specificity respectively
+#### accuracy, error rate, precision, sensitivity, specificity and F1 respectively
 
 forward
 ```{r, echo=FALSE}
-sensitivity_prfor <- (classification_table_prfor[2,2]/(classification_table_prfor[2,2] + classification_table_prfor[2,1])) * 100
-sensitivity_prfor
-specificity_prfor <- (classification_table_prfor[1,1]/(classification_table_prfor[1,1] + classification_table_prfor[1,2])) * 100
-specificity_prfor
 
+tp<-classification_table_prfor[2,2]
+tn<-classification_table_prfor[1,1]
+fn<-classification_table_prfor[1,2]
+fp<-classification_table_prfor[2,1]
+
+acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+
+err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+
+prec_prfor<-100*tp/(tp+fp)
+
+sens_prfor <- 100*tp/(fn+tp)
+#sensitivity_prfor
+spec_prfor <- 100*tn/(tn + fp)
+#specificity_prfor
+f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+
+print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
 ```
 backward
 ```{r, echo=FALSE}
-sensitivity_proback <- (classification_table_prback[2,2]/(classification_table_prback[2,2] + classification_table_prback[2,1])) * 100
-sensitivity_proback
-specificity_proback <- (classification_table_prback[1,1]/(classification_table_prback[1,1] + classification_table_prback[1,2])) * 100
-specificity_proback
+
+tp<-classification_table_prback[2,2]
+tn<-classification_table_prback[1,1]
+fn<-classification_table_prback[1,2]
+fp<-classification_table_prback[2,1]
+
+acc_prback<- 100*(tp+tn)/(tn+tp+fp+fn)
+
+err_rate_prback<- 100*(fp + fn)/(tp+fp+tn+fn)
+
+prec_prback<-100*tp/(tp+fp)
+
+sens_prback <- 100*tp/(fn+tp)
+
+spec_prback <- 100*tn/(tn + fp)
+
+f1_prback<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+
+print(c("accuracy"=acc_prback, "error rate"=err_rate_prback, "precison"=prec_prback, "sensitivity"=sens_prback, "specificity"=spec_prback, "f1"=f1_prback))
 ```
+Comparing the two probit models we can see that the backward elimination model performs slightly better then the forward model. this can be attributed to the lower AIC as well as higher scores for accuracy, precision, sensitivity, specificity and the F1 while also having a lower error rate. It is clear that this increase in performance across the board is only minor though and while in increase is not major. When we are comparing backwards models(probit vs logit) we see that some of the metrics for measuring binomial accuracy are better with the logit having better sensitivity while both have identicle precision and the probit model having better AIC value.
+
 
 #### mcfaden R^2 values and VIF respectivly
 
