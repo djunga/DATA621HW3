@@ -228,7 +228,7 @@ head(crime.train)
 ### Model 1
 ```{r}
 classification_table_1 <- table(crime.train$target, crime.train$predict_prob_m1 > 0.5)
-classificationtable_1
+classification_table_1
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -266,8 +266,8 @@ The Sensitivity is 90.4% and Specificity is 92.8%, when the threshold is 0.5.
 
 ### Model 2
 ```{r}
-classificationtable_2 <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
-classificationtable_2
+classification_table_2 <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
+classification_table_2
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -302,8 +302,8 @@ classificationtable_2
 
 ### Model 3
 ```{r}
-classificationtable_3 <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
-classificationtable_3
+classification_table_3 <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
+classification_table_3
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -312,8 +312,6 @@ classificationtable_3
 
 
 ```{r}
- #### accuracy, error rate, precision, sensitivity, specificity and F1 respectively
-forward
  tp1<-classification_table_3[2,2]
  tn1<-classification_table_3[1,1]
  fn1<-classification_table_3[1,2]
@@ -341,8 +339,8 @@ forward
 ### Model 4
 Probit Back
 ```{r}
-classification_table <- table(crime.train$target, crime.train$predict_prob_back > 0.5)
-classification_table
+classification_table_prback <- table(crime.train$target, crime.train$predict_prob_back > 0.5)
+classification_table_prback
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -377,8 +375,8 @@ classification_table
 
 Probit Forward
 ```{r}
-classification_table <- table(crime.train$target, crime.train$predict_prob_forward > 0.5)
-classification_table
+classification_table_prfor <- table(crime.train$target, crime.train$predict_prob_forward > 0.5)
+classification_table_prfor
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
