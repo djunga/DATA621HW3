@@ -1,0 +1,382 @@
+---
+title: "HW3"
+author: Deepika Dilip, Tora Mullings, Daniel Sullivan, Deepa Sharma, Bikram Barua,
+  Newman Okereafor
+date: '2022-10-19'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Exploration
+
+- Load Data
+- Determine Missing Values
+- Correlation Plot
+- Distribution of Predictors
+```{r, echo = F, warning = F, message = F}
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(corrplot)
+library(reshape2)
+library(knitr)
+library(broom)
+library(caret)
+library(leaps)
+library(MASS)
+library(magrittr)
+library(betareg)
+
+```
+
+## Data Acquisition
+```{r}
+crime.train = read.csv('https://raw.githubusercontent.com/djunga/DATA621HW3/deepika/crime_train.csv')
+crime.eval = read.csv('https://raw.githubusercontent.com/djunga/DATA621HW3/deepika/crime_eval.csv')
+head(crime.train)
+```
+
+### Missing values
+```{r}
+colSums(is.na(crime.train))
+```
+
+```{r}
+colSums(is.na(crime.eval))
+```
+
+## Correlation Plot
+```{r, echo = F, warning = F, message = F}
+corrplot(cor(crime.train), tl.col="black", tl.cex=0.6, order='AOE')
+```
+
+*Interpretation*: `tax` and `rad` are highliy correlated variables. Meanwhile `dis` is inversely correlated with `indus`, `nox`, and `age`.
+
+## Distribution Visualization
+```{r, echo = F, warning = F, message = F}
+mlt.train = crime.train
+mlt.train$ID = rownames(mlt.train)
+mlt.train = melt(mlt.train, id.vars = "ID")
+ggplot(aes(value), data = mlt.train) + geom_histogram() + facet_wrap(~variable, scales = "free") + labs(title = "Distributions of Predictors", x = "Predictors")
+```
+
+*Interpretation*: `target` is a binary variable (outcome). Age is skewed to the left. `rm` is normally distributed. `tax` and `rad` have a couple of outliers but its lower quadrant maintains a normal distribution. 
+
+
+
+# Build models
+
+## Model 1 - All predictors
+```{r}
+mod1 <- glm(target ~ ., family = binomial, crime.train)
+summary(mod1)
+```
+
+## Model 2 - Backward Elimination
+
+```{r, warning=F}
+train.control <- trainControl(method="cv", number=10)   # k-fold cross-validation
+step.model <- train(target ~., data=crime.train, method="leapBackward", tuneGrid=data.frame(nvmax=1:12), trControl=train.control)
+step.model$results
+```
+
+The model with 4 predictors has the lowest RSME value. It also has the highest R-squared.
+
+```{r}
+summary(step.model$finalModel)
+```
+
+
+```{r}
+coef(step.model$finalModel, 4)
+```
+
+```{r}
+mod2 <- glm(target ~ nox + age + rad + medv, family = binomial, crime.train)
+mod2
+```
+
+
+## Model 3 - Forward Selection
+```{r}
+# Create an empty model with no variables
+mod3 <- glm(target ~ 1, data = crime.train, family = 'binomial')
+mod3 <- mod3 %>% 
+  stepAIC(direction = "forward",
+          scope = ~ zn + indus + chas + nox + rm + age + dis 
+                    + rad + tax + ptratio + lstat + medv, 
+          trace = FALSE)
+summary(mod3)
+```
+ 
+
+
+## Model 4 - Probit Regression
+
+After the automated elimination of variables for the model, we wanted to compare the probit and logit models. below we constrict the logit models off of the automated forward and backward elimination variables.
+
+```{r, echo=FALSE}
+probit_back <- glm(target ~ nox + age + rad + medv, family = binomial(link=probit), crime.train)
+probit_back
+```
+
+
+```{r, echo=FALSE}
+probit_forward<-glm(target ~ dis + rad + tax + ptratio, family =binomial(link=probit), crime.train)
+probit_forward
+```
+
+
+# Model Analysis
+
+## Variance Inflation Factor (VIF)
+We can also calculate the VIF values of each variable in the model to see if multicollinearity is a problem:
+Calculate VIF values for each predictor variable in Models 1-4.
+
+
+
+### Model 1 - All predictors
+```{r}
+car::vif(mod1)
+```
+
+As a rule of thumb, VIF values above 5 indicate severe multicollinearity. I see 'rm' 'rad' 'medv' and 'predict_prob' has VIP values above 5 and has issue with multicollinearity. we can assume that multicollinearity is an issue in our model.
+
+### Model 2 - Backwards Elmination
+```{r}
+car::vif(mod2)
+```
+
+As a rule of thumb, VIF values above 5 indicate severe multicollinearity. Since none of the  predictor variables in our models have a VIF over 5, we can assume that multicollinearity is not an issue in our model.
+
+### Model 3 - Forward Elimination
+```{r}
+car::vif(mod3)
+```
+
+### Model 4 - Probit Regression
+```{r}
+car::vif(probit_back)
+car::vif(probit_forward)
+```
+
+
+## Odds Ratio
+The odds ratio is to measure the association between independent variables and dependent variables in R. The model coefficients are identified using the 'coef' function.
+The 'conf-int' argument inside the exponential function calculates the confidence interval for the odds ratio of the model. Then the estimates can be combined using 'cbind'.
+
+### Model 1 - All Predictors
+```{r}
+coef(mod1)
+exp(coef(mod1))
+exp(confint(mod1))
+cbind(coef(mod1), odds_ratio = exp(coef(mod1)), exp(confint(mod1)))
+```
+
+
+### Model 2 - Backward Elimination
+```{r}
+coef(mod2)
+exp(coef(mod2))
+exp(confint(mod2))
+cbind(coef(mod2), odds_ratio = exp(coef(mod2)), exp(confint(mod2)))
+```
+
+### Model 3 - Forward Elimination
+```{r}
+coef(mod3)
+exp(coef(mod3))
+exp(confint(mod3))
+cbind(coef(mod3), odds_ratio = exp(coef(mod3)), exp(confint(mod3)))
+```
+
+### Model 4 - Probit Regression
+Probit Back
+```{r, warning=F}
+coef(probit_back)
+exp(coef(probit_back))
+exp(confint(probit_back))
+cbind(coef(probit_back), odds_ratio = exp(coef(probit_back)), exp(confint(probit_back)))
+```
+
+Probit Forward
+```{r, warning=F}
+coef(probit_forward)
+exp(coef(probit_forward))
+exp(confint(probit_forward))
+cbind(coef(probit_forward), odds_ratio = exp(coef(probit_forward)), exp(confint(probit_forward)))
+```
+
+
+## Classification, Sensitivity, and Specificity
+To calculate these metrics, we will first need to predict the response probabilities for each model. The probability can be predicted of the model using the fitted function. The result can be rounded using the round function. The predicted values can be added as a new column in the dataset for each model.
+
+```{r}
+crime.train$predict_prob_m1 <- round(fitted(mod1), 2)
+crime.train$predict_prob_m2 <- round(fitted(mod2), 2)
+crime.train$predict_prob_m3 <- round(fitted(mod3), 2)
+crime.train$predict_prob_back <- round(fitted(probit_back), 2)
+crime.train$predict_prob_forward <- round(fitted(probit_forward), 2)
+head(crime.train)
+```
+
+### Model 1
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob_m1 > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 220 correctly predicted 'non Target' and 207 correctly predicted 'Targets'.
+#### There are 22 wrongly predicted as 'Targets' and 17 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+
+print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+```
+
+The Sensitivity is 90.4% and Specificity is 92.8%, when the threshold is 0.5.
+
+### Model 2
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 214 correctly predicted 'non Target' and 192 correctly predicted 'Targets'.
+#### There are 23 wrongly predicted as 'Targets' and 37 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+```
+
+### Model 3
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 218 correctly predicted 'non Target' and 207 correctly predicted 'Targets'.
+#### There are 22 wrongly predicted as 'Targets' and 19 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+```
+
+### Model 4
+Probit Back
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob_back > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 214 correctly predicted 'non Target' and 192 correctly predicted 'Targets'.
+#### There are 23 wrongly predicted as 'Targets' and 37 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+```
+
+Probit Forward
+```{r}
+classification_table <- table(crime.train$target, crime.train$predict_prob_forward > 0.5)
+classification_table
+```
+
+#### True indicates predicted 'Targets' and False indicates predicted 'non Target'
+#### There are 204 correctly predicted 'non Target' and 191 correctly predicted 'Targets'.
+#### There are 33 wrongly predicted as 'Targets' and 38 wrongly predicted as 'Non Targets'.
+
+
+```{r}
+sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+```
+
+
+## McFadden's R-Squared
+
+We can compute a metric known as McFadden’s R2, which ranges from 0 to just under 1. In practice, values over 0.40 indicate that a model fits the data very well.
+
+We can compute McFadden’s R-Squared for our models using the pR2 function from the pscl package:
+
+```{r}
+data.frame(Model1=pscl::pR2(mod1)["McFadden"], Model2=pscl::pR2(mod2)["McFadden"],Model3=pscl::pR2(mod3)["McFadden"], Probit_Back=pscl::pR2(probit_back)["McFadden"], Probit_Forward=pscl::pR2(probit_forward)["McFadden"])
+```
+
+All the models have a McFadden's R-Squared of over 0.40, indicating that they fit the data very well and have high predictive power. Model 1 has the highest value.
+
+***
+
+```{r, echo=FALSE}
+# #### accuracy, error rate, precision, sensitivity, specificity and F1 respectively
+#forward
+# tp<-classification_table_prfor[2,2]
+# tn<-classification_table_prfor[1,1]
+# fn<-classification_table_prfor[1,2]
+# fp<-classification_table_prfor[2,1]
+# 
+# acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+# 
+# err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+# 
+# prec_prfor<-100*tp/(tp+fp)
+# 
+# sens_prfor <- 100*tp/(fn+tp)
+# #sensitivity_prfor
+# spec_prfor <- 100*tn/(tn + fp)
+# #specificity_prfor
+# f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+# 
+# print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
+```
+
+```{r, echo=FALSE}
+# backward
+# tp<-classification_table_prback[2,2]
+# tn<-classification_table_prback[1,1]
+# fn<-classification_table_prback[1,2]
+# fp<-classification_table_prback[2,1]
+# 
+# acc_prback<- 100*(tp+tn)/(tn+tp+fp+fn)
+# 
+# err_rate_prback<- 100*(fp + fn)/(tp+fp+tn+fn)
+# 
+# prec_prback<-100*tp/(tp+fp)
+# 
+# sens_prback <- 100*tp/(fn+tp)
+# 
+# spec_prback <- 100*tn/(tn + fp)
+# 
+# f1_prback<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+# 
+# print(c("accuracy"=acc_prback, "error rate"=err_rate_prback, "precison"=prec_prback, "sensitivity"=sens_prback, "specificity"=spec_prback, "f1"=f1_prback))
+
+# Comparing the two probit models we can see that the backward elimination model performs slightly better then the forward model. this can be attributed to the lower AIC as well as higher scores for accuracy, precision, sensitivity, specificity and the F1 while also having a lower error rate. It is clear that this increase in performance across the board is only minor though and while in increase is not major. When we are comparing backwards models(probit vs logit) we see that some of the metrics for measuring binomial accuracy are better with the logit having better sensitivity while both have identicle precision and the probit model having better AIC value.
+```
+
+
+
+
+
