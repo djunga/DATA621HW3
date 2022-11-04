@@ -227,8 +227,8 @@ head(crime.train)
 
 ### Model 1
 ```{r}
-classification_table <- table(crime.train$target, crime.train$predict_prob_m1 > 0.5)
-classification_table
+classification_table_1 <- table(crime.train$target, crime.train$predict_prob_m1 > 0.5)
+classificationtable_1
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -237,18 +237,37 @@ classification_table
 
 
 ```{r}
-sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
-specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+ tp<-classification_table_1[2,2]
+ tn<-classification_table_1[1,1]
+ fn<-classification_table_1[1,2]
+ fp<-classification_table_1[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+ print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
 
-print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+#sensitivity <- (classificationtable_1[2,2]/(classificationtable_1[2,2] + classificationtable_1[2,1])) * 100
+#specificity <- (classificationtable_1[1,1]/(classificationtable_1[1,1] + classificationtable_1[1,2])) * 100
+
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
 The Sensitivity is 90.4% and Specificity is 92.8%, when the threshold is 0.5.
 
 ### Model 2
 ```{r}
-classification_table <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
-classification_table
+classificationtable_2 <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
+classificationtable_2
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -257,15 +276,34 @@ classification_table
 
 
 ```{r}
-sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
-specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
-print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+ tp<-classification_table_2[2,2]
+ tn<-classification_table_2[1,1]
+ fn<-classification_table_2[1,2]
+ fp<-classification_table_2[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+ print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
+
+#sensitivity <- (classificationtable_2[2,2]/(classificationtable_2[2,2] + classificationtable_2[2,1])) * 100
+#specificity <- (classificationtable_2[1,1]/(classificationtable_2[1,1] + classificationtable_2[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
 ### Model 3
 ```{r}
-classification_table <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
-classification_table
+classificationtable_3 <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
+classificationtable_3
 ```
 
 #### True indicates predicted 'Targets' and False indicates predicted 'non Target'
@@ -274,9 +312,30 @@ classification_table
 
 
 ```{r}
-sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
-specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
-print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+ #### accuracy, error rate, precision, sensitivity, specificity and F1 respectively
+forward
+ tp1<-classification_table_3[2,2]
+ tn1<-classification_table_3[1,1]
+ fn1<-classification_table_3[1,2]
+ fp1<-classification_table_3[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+ print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
+
+#sensitivity <- (classificationtable_3[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
 ### Model 4
@@ -292,9 +351,28 @@ classification_table
 
 
 ```{r}
-sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
-specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
-print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+ tp<-classification_table_prback[2,2]
+ tn<-classification_table_prback[1,1]
+ fn<-classification_table_prback[1,2]
+ fp<-classification_table_prback[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+ print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
+
+#sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
 Probit Forward
@@ -309,9 +387,27 @@ classification_table
 
 
 ```{r}
-sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
-specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
-print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+ tp<-classification_table_prfor[2,2]
+ tn<-classification_table_prfor[1,1]
+ fn<-classification_table_prfor[1,2]
+ fp<-classification_table_prfor[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+ print(c("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor))
+##sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
 
