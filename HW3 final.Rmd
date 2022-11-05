@@ -152,7 +152,7 @@ This takes in the significant features from forward and backward selection:
 ```{r}
 
 mod_bk <- glm(formula = target ~ zn + nox + age + dis + rad + tax + ptratio + 
-    medv, family = binomial, data = crm_df)
+    medv, family = binomial, data = crime.train)
 
 tbl_regression(mod_bk)
 
@@ -193,7 +193,7 @@ car::vif(probit_forward)
 
 ### Model 5 - Feature Selection
 ```{r}
-mod_bk
+car::vif(mod_bk)
 ```
 
 ## Odds Ratio
@@ -253,6 +253,12 @@ tbl_regression(probit_forward, exponentiate = TRUE)
 ```
 
 
+### Model 5 - Feature Selection
+
+```{r, warning  = F}
+tbl_regression(mod_bk, exponentiate = TRUE)
+```
+
 ## Classification, Sensitivity, and Specificity
 To calculate these metrics, we will first need to predict the response probabilities for each model. The probability can be predicted of the model using the fitted function. The result can be rounded using the round function. The predicted values can be added as a new column in the dataset for each model.
 
@@ -262,6 +268,8 @@ crime.train$predict_prob_m2 <- round(fitted(mod2), 2)
 crime.train$predict_prob_m3 <- round(fitted(mod3), 2)
 crime.train$predict_prob_back <- round(fitted(probit_back), 2)
 crime.train$predict_prob_forward <- round(fitted(probit_forward), 2)
+crime.train$predicted_prob_m5 <- round(fitted(mod_bk), 2)
+
 head(crime.train)
 ```
 
@@ -448,6 +456,31 @@ data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_pr
 #print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
 ```
 
+### Model 5
+
+```{r}
+
+classification_table_5<- table(crime.train$target, crime.train$predicted_prob_m5 > 0.5)
+
+ tp<-classification_table_5[2,2]
+ tn<-classification_table_5[1,1]
+ fn<-classification_table_5[1,2]
+ fp<-classification_table_5[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+```
 
 ## McFadden's R-Squared
 
@@ -467,19 +500,20 @@ All the models have a McFadden's R-Squared of over 0.40, indicating that they fi
 
 # Model Evaluation
 
+This utilizes the evaluation dataset and maps predicted values.
 
-```{r}
+```{r, warning = F, message = F}
 mod1_predict = data.frame(predicted.values = predict(mod1, crime.eval), model = "model1")
 mod2_predict = data.frame(predicted.values = predict(mod2, crime.eval), model = "model2")
 mod3_predict = data.frame(predicted.values = predict(mod3, crime.eval), model = "model3")
 probit_back_predict = data.frame(predicted.values = predict(probit_back, crime.eval), model = "probit_back")
+mod_5_predict = data.frame(predicted.values = predict(mod_bk, crime.eval), model = "model5")
 
-df.predicted = rbind(mod1_predict, mod2_predict, mod3_predict, probit_back_predict)
+df.predicted = rbind(mod1_predict, mod2_predict, mod3_predict, probit_back_predict, mod_5_predict)
 
-ggplot(data = df.predicted, aes(predicted.values)) + geom_histogram(color = "white", fill = "lightgreen") + facet_wrap(~model)
+ggplot(data = df.predicted, aes(predicted.values)) + geom_histogram(color = "white", fill = "seagreen") + facet_wrap(~model)
 ```
 
-```
 
 
 ***
@@ -534,4 +568,383 @@ ggplot(data = df.predicted, aes(predicted.values)) + geom_histogram(color = "whi
 
 
 
+# Appendix: R Code
+```{r eval = F, echo = T}
+## ----setup, include=FALSE---------------------------------------------------------------------------------------------
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
 
+
+## ---- echo = F, warning = F, message = F------------------------------------------------------------------------------
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+library(corrplot)
+library(reshape2)
+library(knitr)
+library(broom)
+library(caret)
+library(leaps)
+library(MASS)
+library(magrittr)
+library(betareg)
+library(pscl)
+library(gtsummary)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+crime.train = read.csv('https://raw.githubusercontent.com/djunga/DATA621HW3/deepika/crime_train.csv')
+crime.eval = read.csv('https://raw.githubusercontent.com/djunga/DATA621HW3/deepika/crime_eval.csv')
+head(crime.train) %>% kable()
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+colSums(is.na(crime.train))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+colSums(is.na(crime.eval))
+
+
+## ---- echo = F, warning = F, message = F------------------------------------------------------------------------------
+corrplot(cor(crime.train), tl.col="black", tl.cex=0.6, order='AOE')
+
+
+## ---- echo = F, warning = F, message = F------------------------------------------------------------------------------
+mlt.train = crime.train
+mlt.train$ID = rownames(mlt.train)
+mlt.train = melt(mlt.train, id.vars = "ID")
+ggplot(aes(value), data = mlt.train) + geom_histogram() + facet_wrap(~variable, scales = "free") + labs(title = "Distributions of Predictors", x = "Predictors")
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+mod1 <- glm(target ~ ., family = binomial, crime.train)
+# summary(mod1)
+tbl_regression(mod1)
+
+
+## ---- warning=F-------------------------------------------------------------------------------------------------------
+train.control <- trainControl(method="cv", number=10)   # k-fold cross-validation
+step.model <- train(target ~., data=crime.train, method="leapBackward", tuneGrid=data.frame(nvmax=1:12), trControl=train.control)
+kable(step.model$results)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+summary(step.model$finalModel)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+coef(step.model$finalModel, 4)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+mod2 <- glm(target ~ nox + age + rad + medv, family = binomial, crime.train)
+tbl_regression(mod2)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+# Create an empty model with no variables
+mod3 <- glm(target ~ 1, data = crime.train, family = 'binomial')
+mod3 <- mod3 %>% 
+  stepAIC(direction = "forward",
+          scope = ~ zn + indus + chas + nox + rm + age + dis 
+                    + rad + tax + ptratio + lstat + medv, 
+          trace = FALSE)
+# summary(mod3)
+tbl_regression(mod3)
+
+
+
+## ---- echo=FALSE------------------------------------------------------------------------------------------------------
+probit_back <- glm(target ~ nox + age + rad + medv, family = binomial(link=probit), crime.train)
+tbl_regression(probit_back)
+
+
+## ---- echo=FALSE------------------------------------------------------------------------------------------------------
+probit_forward<-glm(target ~ dis + rad + tax + ptratio, family =binomial(link=probit), crime.train)
+tbl_regression(probit_forward)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+
+mod_bk <- glm(formula = target ~ zn + nox + age + dis + rad + tax + ptratio + 
+    medv, family = binomial, data = crime.train)
+
+tbl_regression(mod_bk)
+
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+car::vif(mod1)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+car::vif(mod2)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+car::vif(mod3)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+car::vif(probit_back)
+car::vif(probit_forward)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+car::vif(mod_bk)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+# coef(mod1)
+# exp(coef(mod1))
+# exp(confint(mod1))
+# cbind(coef(mod1), odds_ratio = exp(coef(mod1)), exp(confint(mod1)))
+tbl_regression(mod1, exponentiate = TRUE)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+# coef(mod2)
+# exp(coef(mod2))
+# exp(confint(mod2))
+# cbind(coef(mod2), odds_ratio = exp(coef(mod2)), exp(confint(mod2)))
+tbl_regression(mod2, exponentiate = TRUE)
+
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+# coef(mod3)
+# exp(coef(mod3))
+# exp(confint(mod3))
+# cbind(coef(mod3), odds_ratio = exp(coef(mod3)), exp(confint(mod3)))
+tbl_regression(mod3, exponentiate = TRUE)
+
+
+
+## ---- warning=F-------------------------------------------------------------------------------------------------------
+# coef(probit_back)
+# exp(coef(probit_back))
+# exp(confint(probit_back))
+# cbind(coef(probit_back), odds_ratio = exp(coef(probit_back)), exp(confint(probit_back)))
+tbl_regression(probit_back, exponentiate = TRUE)
+
+
+
+## ---- warning=F-------------------------------------------------------------------------------------------------------
+# coef(probit_forward)
+# exp(coef(probit_forward))
+# exp(confint(probit_forward))
+# cbind(coef(probit_forward), odds_ratio = exp(coef(probit_forward)), exp(confint(probit_forward)))
+tbl_regression(probit_forward, exponentiate = TRUE)
+
+
+
+## ---- warning  = F----------------------------------------------------------------------------------------------------
+tbl_regression(mod_bk, exponentiate = TRUE)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+crime.train$predict_prob_m1 <- round(fitted(mod1), 2)
+crime.train$predict_prob_m2 <- round(fitted(mod2), 2)
+crime.train$predict_prob_m3 <- round(fitted(mod3), 2)
+crime.train$predict_prob_back <- round(fitted(probit_back), 2)
+crime.train$predict_prob_forward <- round(fitted(probit_forward), 2)
+crime.train$predicted_prob_m5 <- round(fitted(mod_bk), 2)
+
+head(crime.train)
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+classification_table_1 <- table(crime.train$target, crime.train$predict_prob_m1 > 0.5)
+classification_table_1
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+ tp<-classification_table_1[2,2]
+ tn<-classification_table_1[1,1]
+ fn<-classification_table_1[1,2]
+ fp<-classification_table_1[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+
+#sensitivity <- (classificationtable_1[2,2]/(classificationtable_1[2,2] + classificationtable_1[2,1])) * 100
+#specificity <- (classificationtable_1[1,1]/(classificationtable_1[1,1] + classificationtable_1[1,2])) * 100
+
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+classification_table_2 <- table(crime.train$target, crime.train$predict_prob_m2 > 0.5)
+classification_table_2
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+ tp<-classification_table_2[2,2]
+ tn<-classification_table_2[1,1]
+ fn<-classification_table_2[1,2]
+ fp<-classification_table_2[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+
+#sensitivity <- (classificationtable_2[2,2]/(classificationtable_2[2,2] + classificationtable_2[2,1])) * 100
+#specificity <- (classificationtable_2[1,1]/(classificationtable_2[1,1] + classificationtable_2[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+classification_table_3 <- table(crime.train$target, crime.train$predict_prob_m3 > 0.5)
+classification_table_3
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+ tp1<-classification_table_3[2,2]
+ tn1<-classification_table_3[1,1]
+ fn1<-classification_table_3[1,2]
+ fp1<-classification_table_3[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+
+#sensitivity <- (classificationtable_3[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+classification_table_prback <- table(crime.train$target, crime.train$predict_prob_back > 0.5)
+classification_table_prback
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+ tp<-classification_table_prback[2,2]
+ tn<-classification_table_prback[1,1]
+ fn<-classification_table_prback[1,2]
+ fp<-classification_table_prback[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+
+#sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+classification_table_prfor <- table(crime.train$target, crime.train$predict_prob_forward > 0.5)
+classification_table_prfor
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+ tp<-classification_table_prfor[2,2]
+ tn<-classification_table_prfor[1,1]
+ fn<-classification_table_prfor[1,2]
+ fp<-classification_table_prfor[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+##sensitivity <- (classification_table[2,2]/(classification_table[2,2] + classification_table[2,1])) * 100
+#specificity <- (classification_table[1,1]/(classification_table[1,1] + classification_table[1,2])) * 100
+#print(paste0("The sensitivity is ", round(sensitivity,1), "% and the specificity is ", round(specificity,1), "% when the threshold is 0.5."))
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+
+classification_table_5<- table(crime.train$target, crime.train$predicted_prob_m5 > 0.5)
+
+ tp<-classification_table_5[2,2]
+ tn<-classification_table_5[1,1]
+ fn<-classification_table_5[1,2]
+ fp<-classification_table_5[2,1]
+ 
+ acc_prfor<- 100*(tp+tn)/(tn+tp+fp+fn)
+ 
+ err_rate_prfor<- 100*(fp + fn)/(tp+fp+tn+fn)
+ 
+ prec_prfor<-100*tp/(tp+fp)
+ 
+ sens_prfor <- 100*tp/(fn+tp)
+ #sensitivity_prfor
+ spec_prfor <- 100*tn/(tn + fp)
+ #specificity_prfor
+ f1_prfor<-((2*tp/(tp+fp)*tp/(tp+fn))/(tp/(tp+fp)+tp/(tp+fn)))*100
+ 
+data.frame("accuracy"=acc_prfor, "error rate"=err_rate_prfor, "precison"=prec_prfor, "sensitivity"=sens_prfor, "specificity"=spec_prfor, "f1"=f1_prfor) %>% kable()
+
+
+## ---- include = F-----------------------------------------------------------------------------------------------------
+a = data.frame(Model1=pscl::pR2(mod1)["McFadden"], Model2=pscl::pR2(mod2)["McFadden"],Model3=pscl::pR2(mod3)["McFadden"], Probit_Back=pscl::pR2(probit_back)["McFadden"], Probit_Forward=pscl::pR2(probit_forward)["McFadden"])
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+kable(a)
+
+
+## ---- warning = F, message = F----------------------------------------------------------------------------------------
+mod1_predict = data.frame(predicted.values = predict(mod1, crime.eval), model = "model1")
+mod2_predict = data.frame(predicted.values = predict(mod2, crime.eval), model = "model2")
+mod3_predict = data.frame(predicted.values = predict(mod3, crime.eval), model = "model3")
+probit_back_predict = data.frame(predicted.values = predict(probit_back, crime.eval), model = "probit_back")
+mod_5_predict = data.frame(predicted.values = predict(mod_bk, crime.eval), model = "model5")
+
+df.predicted = rbind(mod1_predict, mod2_predict, mod3_predict, probit_back_predict, mod_5_predict)
+
+ggplot(data = df.predicted, aes(predicted.values)) + geom_histogram(color = "white", fill = "seagreen") + facet_wrap(~model)
+
+
+```
